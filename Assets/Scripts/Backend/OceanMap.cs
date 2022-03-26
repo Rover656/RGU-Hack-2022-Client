@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Backend {
     public class OceanMap {
-        public int WaterLevel = 16;
+        public const int WaterLevel = 16;
 
         private List<Ship> _ships = new List<Ship>();
         
@@ -25,7 +25,7 @@ namespace Backend {
                 }
             }
 
-            return HitResult.Miss;
+            return new HitResult(HitResult.Type.Miss, new Vector3Int(pos.x, WaterLevel, pos.y));
         }
     }
 }

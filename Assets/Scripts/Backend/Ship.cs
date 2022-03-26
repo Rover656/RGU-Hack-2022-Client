@@ -10,7 +10,6 @@ public struct Ship : INetworkSerializable {
     /// </summary>
     public Vector3Int Direction; // (0, -1, 0) for example.
     public ShipType Type;
-    public int Length;
     public bool[] Hits;
     public ulong Owner;
 
@@ -18,7 +17,6 @@ public struct Ship : INetworkSerializable {
         Position = position;
         Direction = direction;
         Type = type;
-        Length = length;
         Hits = new bool[length];
         Owner = owner;
     }
@@ -38,23 +36,23 @@ public struct Ship : INetworkSerializable {
             
             // If we already hit, this is a "miss"
             if (Hits[idx]) {
-                return HitResult.Miss;
+                return new HitResult(HitResult.Type.Miss, new Vector3Int(pos.x, OceanMap.WaterLevel, pos.z));
             }
 
             // Mark the hit.
             Hits[idx] = true;
-            return IsDestroyed() ? HitResult.Destroy : HitResult.Hit;
+            return IsDestroyed() ? new HitResult(HitResult.Type.Destroy, pos) : new HitResult(HitResult.Type.Hit, pos);
         }
 
         // Dumbass.
-        return HitResult.Miss;
+        return new HitResult(HitResult.Type.Miss, new Vector3Int(pos.x, OceanMap.WaterLevel, pos.z));
     }
 
     public bool IsHit(Vector3Int pos) {
         // Check for a collision at this position.
-        return pos.x >= Position.x && pos.x <= Position.x + Direction.x * (Length - 1) &&
-               pos.y >= Position.y && pos.y <= Position.y + Direction.y * (Length - 1) &&
-               pos.z >= Position.z && pos.z <= Position.z + Direction.z * (Length - 1);
+        return pos.x >= Position.x && pos.x <= Position.x + Direction.x * (Type.Length - 1) &&
+               pos.y >= Position.y && pos.y <= Position.y + Direction.y * (Type.Length - 1) &&
+               pos.z >= Position.z && pos.z <= Position.z + Direction.z * (Type.Length - 1);
     }
 
     public bool IsDestroyed() {
@@ -69,11 +67,11 @@ public struct Ship : INetworkSerializable {
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter {
         serializer.SerializeValue(ref Position);
         serializer.SerializeValue(ref Direction);
-        serializer.SerializeValue(ref Type);
+        serializer.SerializeNetworkSerializable(ref Type);
 
         var length = 0;
         if (!serializer.IsReader) {
-            length = Length;
+            length = Type.Length;
         }
         serializer.SerializeValue(ref length);
 

@@ -7,10 +7,10 @@ public class TestingCrap : MonoBehaviour {
     
     // Start is called before the first frame update
     void Start() {
-        var ship = new Ship(new Vector3Int(0, 0, 3), new Vector3Int(0, 1, 0), ShipType.Boat, 5, 0);
+        // var ship = new Ship(new Vector3Int(0, 0, 3), new Vector3Int(0, 1, 0), ShipType.BATTLESHIP, 5, 0);
 
         NetworkManager.Singleton.StartHost();
-        gameManager.PlaceShip(ship);
+        // gameManager.PlaceShip(ship);
     }
 
     // Update is called once per frame
