@@ -43,17 +43,17 @@ namespace Client {
 
         public static GridCoordinate GetShipRearPos(GridCoordinate position, bool up, ShipType type) {
             return new GridCoordinate(
-                position.x - (!up ? (type.Length - 1) / 2 : 0),
+                position.x - (!up ? (ShipTypes.GetLength(type) - 1) / 2 : 0),
                 position.y,
-                position.z - (up ? (type.Length - 1) / 2 : 0)
+                position.z - (up ? (ShipTypes.GetLength(type) - 1) / 2 : 0)
             );
         }
 
         public static GridCoordinate GetShipMiddle(Ship ship) {
             return new GridCoordinate(
-                ship.Position.x + (!ship.Up ? (ship.Type.Length - 1) / 2 : 0),
+                ship.Position.x + (!ship.Up ? (ShipTypes.GetLength(ship.Type) - 1) / 2 : 0),
                 ship.Position.y,
-                ship.Position.z + (ship.Up ? (ship.Type.Length - 1) / 2 : 0)
+                ship.Position.z + (ship.Up ? (ShipTypes.GetLength(ship.Type) - 1) / 2 : 0)
             );
         }
     }

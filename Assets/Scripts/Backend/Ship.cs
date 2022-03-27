@@ -18,7 +18,7 @@ public struct Ship : INetworkSerializable {
         Position = position;
         Up = up;
         Type = type;
-        Hits = new bool[type.Length];
+        Hits = new bool[ShipTypes.GetLength(type)];
         Owner = owner;
     }
 
@@ -55,10 +55,10 @@ public struct Ship : INetworkSerializable {
             return pos.x == Position.x &&
                    pos.y == Position.y &&
                    pos.z >= Position.z &&
-                   pos.z < Position.z + Type.Length;
+                   pos.z < Position.z + ShipTypes.GetLength(Type);
         } else {
             return pos.x >= Position.x &&
-                   pos.x < Position.x + Type.Length &&
+                   pos.x < Position.x + ShipTypes.GetLength(Type) &&
                    pos.y == Position.y &&
                    pos.z == Position.z;
         }
@@ -76,11 +76,11 @@ public struct Ship : INetworkSerializable {
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter {
         serializer.SerializeValue(ref Position);
         serializer.SerializeValue(ref Up);
-        serializer.SerializeNetworkSerializable(ref Type);
+        serializer.SerializeValue(ref Type);
 
         var length = 0;
         if (!serializer.IsReader) {
-            length = Type.Length;
+            length = ShipTypes.GetLength(Type);
         }
         serializer.SerializeValue(ref length);
 
