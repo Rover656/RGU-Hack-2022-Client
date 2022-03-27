@@ -13,12 +13,18 @@ public class GameManager : NetworkBehaviour {
 
     public GameObject battleshipPrefab;
     public GameObject frigatePrefab;
+    public GameObject destroyerPrefab;
+    public GameObject cruiserPrefab;
+    public GameObject corvettePrefab;
     public GameObject submarinePrefab;
 
     private static readonly ShipType[] PlacedTypes = {
+        ShipType.Destroyer,
         ShipType.Battleship,
         ShipType.Frigate,
         ShipType.Frigate,
+        ShipType.Cruiser,
+        ShipType.Corvette,
         ShipType.Submarine,
         ShipType.Submarine,
     };
@@ -55,16 +61,21 @@ public class GameManager : NetworkBehaviour {
     #region Client Frontend
 
     public GameObject GetShipPrefab(ShipType type) {
-        if (type.Equals(ShipType.Battleship)) {
-            return battleshipPrefab;
-        }
-
-        if (type.Equals(ShipType.Frigate)) {
-            return frigatePrefab;
-        }
-
-        if (type.Equals(ShipType.Submarine)) {
-            return submarinePrefab;
+        switch (type) {
+            case ShipType.Battleship:
+                return battleshipPrefab;
+            case ShipType.Frigate:
+                return frigatePrefab;
+            case ShipType.Destroyer:
+                return destroyerPrefab;
+            case ShipType.Cruiser:
+                return cruiserPrefab;
+            case ShipType.Corvette:
+                return corvettePrefab;
+            case ShipType.Submarine:
+                return submarinePrefab;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(type), type, null);
         }
 
         return null;
@@ -132,12 +143,6 @@ public class GameManager : NetworkBehaviour {
             Debug.Log("Clients all connected, starting placement phase.");
             
             BeginPlacePhaseClientRpc(PlacedTypes[0]);
-            // SetCurrentPlaceTypeClientRpc(PlacedTypes[0], new ClientRpcParams() {
-            //     Send = new ClientRpcSendParams() {
-            //         TargetClientIds = new []{_clients[0], _clients[1]}
-            //     }
-            // });
-            
             _clientPlaceCounts.Add(_clients[0], 1);
             _clientPlaceCounts.Add(_clients[1], 1);
         }
@@ -213,6 +218,8 @@ public class GameManager : NetworkBehaviour {
         // Attempt the strike
         var result = _map.BombAt(pos, _clients[(_currentTurn + 1) % 2]);
         
+        Debug.Log($"Attempted strike at {pos} and resulted in a {result.HitType}.");
+        
         var toAttacker = new ClientRpcParams {
             Send = new ClientRpcSendParams {
                 TargetClientIds = new []{rpcParams.Receive.SenderClientId}
@@ -272,8 +279,10 @@ public class GameManager : NetworkBehaviour {
         // Reorient for client.
         ship.Position = Constants.GetShipMiddle(ship);
         
+        var newRot = Vector3.zero;
+        newRot.y = ship.Up ? 0 : 90;
         Instantiate(GetShipPrefab(ship.Type), Constants.WorldGridToWorld(Constants.LogicalToWorldGrid(ship.Position)),
-            Quaternion.identity, UIManager.Singleton.ownShips);
+            Quaternion.Euler(newRot), UIManager.Singleton.ownShips);
     }
 
     [ClientRpc]
@@ -281,9 +290,13 @@ public class GameManager : NetworkBehaviour {
         // Reorient for client.
         ship.Position = Constants.GetShipMiddle(ship);
 
+        var newRot = Vector3.zero;
+        newRot.y = ship.Up ? 0 : 90;
         Instantiate(GetShipPrefab(ship.Type), Constants.WorldGridToWorld(Constants.LogicalToWorldGrid(ship.Position)),
-            Quaternion.identity, UIManager.Singleton.enemyShips);
+            Quaternion.Euler(newRot), UIManager.Singleton.enemyShips);
     }
+
+    private Dictionary<Vector2Int, GameObject> _hitMarkers = new Dictionary<Vector2Int, GameObject>();
 
     /// <summary>
     /// Broadcast to all clients telling of a hit or miss at a given position.
@@ -292,12 +305,44 @@ public class GameManager : NetworkBehaviour {
     /// <param name="hitResult">The result of the hit.</param>
     [ClientRpc]
     private void BombResultClientRpc(HitResult hitResult, ClientRpcParams rpcParams = default) {
-        // TODO: Put markers for our own hits and misses
+        var loc2D = new Vector2Int(hitResult.Position.x, hitResult.Position.z);
+        if (_previousHits.ContainsKey(loc2D)) {
+            if (_previousHits[loc2D] == hitResult.HitType) {
+                return;
+            }
+        }
+
+        if (_hitMarkers.ContainsKey(loc2D)) {
+            Destroy(_hitMarkers[loc2D]);
+            _hitMarkers.Remove(loc2D);
+        }
+        
+        if (hitResult.HitType == HitResult.Type.Miss) {
+           var go = Instantiate(UIManager.Singleton.missSpherePrefab,
+                Constants.Upscale(Constants.LogicalToWorldGrid(new GridCoordinate(hitResult.Position.x, Constants.WaterLevel, hitResult.Position.z))), Quaternion.identity, UIManager.Singleton.enemyShips);
+
+           _hitMarkers.Add(loc2D, go);
+        } else {
+            var go = Instantiate(UIManager.Singleton.hitSpherePrefab,
+                Constants.Upscale(Constants.LogicalToWorldGrid(hitResult.Position)), Quaternion.identity, UIManager.Singleton.enemyShips);
+
+            _hitMarkers.Add(loc2D, go);
+        }
+        
+        // Log previous hit.
+        _previousHits.Add(loc2D, hitResult.HitType);
     }
 
     [ClientRpc]
     private void EnemyBombResultClientRpc(HitResult hitResult, ClientRpcParams rpcParams = default) {
         // TODO: Put markers for where the enemy has hit.
+        if (hitResult.HitType == HitResult.Type.Miss) {
+            Instantiate(UIManager.Singleton.missSpherePrefab,
+                Constants.Upscale(Constants.LogicalToWorldGrid(new GridCoordinate(hitResult.Position.x, Constants.WaterLevel, hitResult.Position.y))), Quaternion.identity, UIManager.Singleton.ownShips);
+        } else {
+            Instantiate(UIManager.Singleton.hitSpherePrefab,
+                Constants.Upscale(Constants.LogicalToWorldGrid(hitResult.Position)), Quaternion.identity, UIManager.Singleton.ownShips);
+        }
     }
 
     #endregion

@@ -33,6 +33,7 @@ namespace Client {
                 if (_lastType != GameManager.Singleton.GetPlacingShipType().Value) {
                     DestroyPreview();
                     CreatePreview();
+                    _lastType = GameManager.Singleton.GetPlacingShipType().Value;
                 } else if (previewVessel == null) {
                     CreatePreview();
                 }
@@ -56,8 +57,10 @@ namespace Client {
                     _elevation++;
                     if (_elevation > Constants.WaterLevel) _elevation = Constants.WaterLevel;
                 }
-            
-                // TODO: Navigate through ship types, recreating the preview.
+
+                if (Input.GetKeyDown(KeyCode.R)) {
+                    _upwards = !_upwards;
+                }
             
                 // Placement actions
                 if (MouseLogicalPos.HasValue) {
@@ -84,6 +87,10 @@ namespace Client {
             var newPos = Vector3.zero;
             newPos.y = (Elevation - Constants.WaterLevel) * Constants.SquareSize;
             previewVessel.transform.localPosition = newPos;
+
+            var newRot = Vector3.zero;
+            newRot.y = _upwards ? 0 : 90;
+            previewVessel.transform.localRotation = Quaternion.Euler(newRot);
         }
 
         private Ship GetShipDescriptor() {

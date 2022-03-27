@@ -32,6 +32,10 @@ namespace Client {
                 pos.z * SquareSize
             );
         }
+        
+        public static Vector3 Upscale(Vector3Int pos) {
+            return new Vector3(pos.x * SquareSize, pos.y * SquareSize, pos.z * SquareSize);
+        }
 
         public static GridCoordinate WorldToLogicalGrid(Vector2Int worldPos) {
             return new GridCoordinate(worldPos.x + MapUnitSize / 2, WaterLevel, worldPos.y + MapUnitSize / 2);

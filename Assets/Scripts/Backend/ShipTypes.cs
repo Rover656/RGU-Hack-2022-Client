@@ -31,6 +31,15 @@ namespace Backend {
             _lengths.Add(ShipType.Frigate, 3);
             _boats.Add(ShipType.Frigate, true);
             
+            _lengths.Add(ShipType.Destroyer, 6);
+            _boats.Add(ShipType.Destroyer, true);
+            
+            _lengths.Add(ShipType.Cruiser, 3);
+            _boats.Add(ShipType.Cruiser, true);
+            
+            _lengths.Add(ShipType.Corvette, 1);
+            _boats.Add(ShipType.Corvette, true);
+            
             _lengths.Add(ShipType.Submarine, 3);
             _boats.Add(ShipType.Submarine, false);
         }

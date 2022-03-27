@@ -11,7 +11,4 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/GameStaging.unity
     guid: 07b63ddd81c22402380e1835f3d7d42c
-  - enabled: 1
-    path: Assets/Scenes/ClientConnecting.unity
-    guid: 2773cbc12a8b34786a0edeafd125ef5d
   m_configObjects: {}

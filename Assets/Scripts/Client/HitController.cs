@@ -15,8 +15,10 @@ public class HitController : BaseMouseTool {
     }
     
     private void Update() {
-        if (GameManager.Singleton == null) return;
-        if (GameManager.Singleton.OnCooldown()) return;
+        if (GameManager.Singleton == null || GameManager.Singleton.OnCooldown()) {
+            meshRenderer.enabled = false;
+            return;
+        }
 
         if (GameManager.Singleton.IsMyTurn()) {
             // Move on grid.
@@ -45,6 +47,8 @@ public class HitController : BaseMouseTool {
                     GameManager.Singleton.TryHit(MouseGridPos.Value);
                 }
             }
+        } else {
+            meshRenderer.enabled = false;
         }
     }
 }

@@ -40,7 +40,7 @@ namespace Backend {
         public HitResult BombAt(GridCoordinate pos, ulong owner) {
             // X is X and Y is Z ;P
             for (int y = Constants.WaterLevel + 1; y >= 0; y--) {
-                var shipPos = new GridCoordinate(pos.x, y, pos.y);
+                var shipPos = new GridCoordinate(pos.x, y, pos.z);
                 
                 // TODO: Some way of organising this data so I dont have to iterate so many damn times
                 foreach (var ship in _ships) {
