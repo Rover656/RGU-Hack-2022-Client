@@ -1,21 +1,46 @@
 using System.Collections.Generic;
+using Client;
 using UnityEngine;
 
 namespace Backend {
     public class OceanMap {
-        public const int WaterLevel = 16;
-
         private List<Ship> _ships = new List<Ship>();
         
-        public void AddShip(Ship ship) {
+        public bool AddShip(Ship ship) {
+            for (var i = 0; i < ship.Type.Length; i++) {
+                var pos = ship.Position;
+                if (ship.Up) pos.z += i;
+                else pos.x += i;
+                
+                if (CollidesWith(pos)) {
+                    return false;
+                }
+
+                // Stop leaving the play area!
+                if (!Constants.IsInGrid(pos)) {
+                    return false;
+                }
+            }
+            
             // Store
             _ships.Add(ship);
+            return true;
         }
 
-        public HitResult BombAt(Vector2Int pos) {
+        public bool CollidesWith(GridCoordinate pos) {
+            foreach (var ship in _ships) {
+                if (ship.IsHit(pos)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        
+        public HitResult BombAt(GridCoordinate pos) {
             // X is X and Y is Z ;P
-            for (int y = WaterLevel + 1; y >= 0; y++) {
-                var shipPos = new Vector3Int(pos.x, y, pos.y);
+            for (int y = Constants.WaterLevel + 1; y >= 0; y--) {
+                var shipPos = new GridCoordinate(pos.x, y, pos.y);
                 
                 // TODO: Some way of organising this data so I dont have to iterate so many damn times
                 foreach (var ship in _ships) {
@@ -25,7 +50,7 @@ namespace Backend {
                 }
             }
 
-            return new HitResult(HitResult.Type.Miss, new Vector3Int(pos.x, WaterLevel, pos.y));
+            return new HitResult(HitResult.Type.Miss, new GridCoordinate(pos.x, Constants.WaterLevel, pos.y));
         }
     }
 }

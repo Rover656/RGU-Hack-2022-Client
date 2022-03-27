@@ -4,15 +4,16 @@ using UnityEngine;
 namespace Backend {
     public struct HitResult {
         public enum Type {
+            None,
             Miss,
             Hit,
             Destroy
         }
 
         public Type HitType;
-        public Vector3Int Position;
+        public GridCoordinate Position;
 
-        public HitResult(Type hitType, Vector3Int position) {
+        public HitResult(Type hitType, GridCoordinate position) {
             HitType = hitType;
             Position = position;
         }

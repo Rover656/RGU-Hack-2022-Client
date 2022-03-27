@@ -1,20 +1,27 @@
 using System;
 using System.Collections.Generic;
 using Backend;
+using Client;
 using Unity.Netcode;
 using UnityEngine;
-using Random = UnityEngine.Random;
 
 public class GameManager : NetworkBehaviour {
+
+    public static GameManager Singleton;
 
     public GameObject waitingForConnectUI;
     public GameObject placementUI;
     public GameObject attackUI;
+
+
+    public GameObject battleshipPrefab;
     
     #region Behaviour Actions
 
     // Setup
     private void Start() {
+        Singleton = this;
+        
         if (NetworkManager.IsHost) {
             waitingForConnectUI.SetActive(true);
         }
@@ -39,6 +46,7 @@ public class GameManager : NetworkBehaviour {
     #region Client Frontend
 
     public bool PlacementsEnabled() {
+        return true; // TODO: bring this shit back
         return _isPlacing;
     }
     
@@ -46,13 +54,22 @@ public class GameManager : NetworkBehaviour {
         return _isTurn;
     }
 
+    public HitResult.Type GetCellLastState(Vector2Int pos) {
+        if (_previousHits.ContainsKey(pos)) {
+            return _previousHits[pos];
+        }
+
+        return HitResult.Type.None;
+    }
+
     public void PlaceShip(Ship ship) {
         if (NetworkManager.Singleton.IsClient) {
+            Debug.Log($"Asking to place at {ship.Position}");
             PlaceShipServerRpc(ship);
         } else throw new Exception("Why is the server placing ships??");
     }
 
-    public void TryHit(Vector2Int position) {
+    public void TryHit(GridCoordinate position) {
         if (NetworkManager.Singleton.IsClient) {
             TryHitServerRpc(position);
         }
@@ -103,26 +120,25 @@ public class GameManager : NetworkBehaviour {
         ship.Owner = rpcParams.Receive.SenderClientId;
         
         // Place ship
-        // TODO: Validation..
-        _map.AddShip(ship);
-
-        // Return the placed ship
-        ShipPlacedClientRpc(ship, new ClientRpcParams() {
-            Send = new ClientRpcSendParams() {
-                TargetClientIds = new [] {
-                    rpcParams.Receive.SenderClientId
+        if (_map.AddShip(ship)) {
+            // Return the placed ship
+            ShipPlacedClientRpc(ship, new ClientRpcParams() {
+                Send = new ClientRpcSendParams() {
+                    TargetClientIds = new [] {
+                        rpcParams.Receive.SenderClientId
+                    }
                 }
-            }
-        });
+            });
         
-        // TODO: If player has finished their place phase, end building mode
-        // TODO: If the last player finished, trigger the first turn.
+            // TODO: If player has finished their place phase, end building mode
+            // TODO: If the last player finished, trigger the first turn.
 
-        // _currentTurn = Random.Range(0, _clients.Count);
+            // _currentTurn = Random.Range(0, _clients.Count);
+        }
     }
 
     [ServerRpc]
-    private void TryHitServerRpc(Vector2Int pos, ServerRpcParams rpcParams = default) {
+    private void TryHitServerRpc(GridCoordinate pos, ServerRpcParams rpcParams = default) {
         // Get player index
         var idx = _clients.FindIndex(x => x == rpcParams.Receive.SenderClientId);
         if (_currentTurn != idx) {
@@ -161,6 +177,8 @@ public class GameManager : NetworkBehaviour {
     private bool _isPlacing = false;
     private bool _isTurn = false;
 
+    private Dictionary<Vector2Int, HitResult.Type> _previousHits = new Dictionary<Vector2Int, HitResult.Type>();
+
     #region Map Events
 
     /// <summary>
@@ -174,6 +192,12 @@ public class GameManager : NetworkBehaviour {
         // TODO: Render ship for meeeee
         
         Debug.Log("A SHIP HATH BEEN PLACE!");
+
+        // Reorient for client.
+        ship.Position = Constants.GetShipMiddle(ship);
+
+        Instantiate(battleshipPrefab, Constants.WorldGridToWorld(Constants.LogicalToWorldGrid(ship.Position)),
+            Quaternion.identity, null);
     }
 
     /// <summary>

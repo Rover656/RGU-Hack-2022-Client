@@ -38,7 +38,6 @@ public class CameraControl : MonoBehaviour
         }
 
         transform.RotateAround(Vector3.zero, Vector3.up, angle * Time.deltaTime);
-
         transform.Rotate(Vector3.right, anglePitch * Time.deltaTime);
     }
 }
