@@ -15,35 +15,40 @@ public class HitController : BaseMouseTool {
     }
     
     private void Update() {
-        if (GameManager.Singleton == null) return;
+        if (GameManager.Singleton == null || GameManager.Singleton.OnCooldown()) {
+            meshRenderer.enabled = false;
+            return;
+        }
+
+        if (GameManager.Singleton.IsMyTurn()) {
+            // Move on grid.
+            MoveToMouseOnGrid();
         
-        // Move on grid.
-        MoveToMouseOnGrid();
+            // Hide if we're out-of-bounds
+            meshRenderer.enabled = IsInGrid;
         
-        // Hide if we're out-of-bounds
-        meshRenderer.enabled = IsInGrid;
-        
-        // Change colour based on the last action in the cell.
-        if (MouseLogicalPos.HasValue) {
-            // Get the last state
-            var lastState = GameManager.Singleton.GetCellLastState(MouseLogicalPos.Value);
+            // Change colour based on the last action in the cell.
+            if (MouseLogicalPos.HasValue) {
+                // Get the last state
+                var lastState = GameManager.Singleton.GetCellLastState(MouseLogicalPos.Value);
             
-            // Apply the material
-            if (lastState == HitResult.Type.Miss) {
-                meshRenderer.material = materialWasMiss;
-            } else if (lastState == HitResult.Type.None) {
-                meshRenderer.material = materialNeverTouched;
-            } else {
-                meshRenderer.material = materialWasHit;
-            }
+                // Apply the material
+                if (lastState == HitResult.Type.Miss) {
+                    meshRenderer.material = materialWasMiss;
+                } else if (lastState == HitResult.Type.None) {
+                    meshRenderer.material = materialNeverTouched;
+                } else {
+                    meshRenderer.material = materialWasHit;
+                }
             
-            // Click action (only if the last attempt wasn't a miss).
-            if (PerformAction && lastState != HitResult.Type.Miss) {
-                if (GameManager.Singleton.IsMyTurn()) {
+                // Click action (only if the last attempt wasn't a miss).
+                if (PerformAction && lastState != HitResult.Type.Miss) {
                     // Attempt a hit at this cell
                     GameManager.Singleton.TryHit(MouseGridPos.Value);
                 }
             }
+        } else {
+            meshRenderer.enabled = false;
         }
     }
 }

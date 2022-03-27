@@ -44,11 +44,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7089183e7ecc4ed484dbefcb743ec7aa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  waitingForConnectUI: {fileID: 0}
-  placementUI: {fileID: 0}
-  attackUI: {fileID: 0}
   battleshipPrefab: {fileID: 8784320574195257009, guid: db4a3a7b935c943988bb1228c8fda927, type: 3}
   frigatePrefab: {fileID: 5216069836026236033, guid: 1cec98a029f2e4b18b9ad1a41757a441, type: 3}
+  destroyerPrefab: {fileID: 7792356806787656039, guid: 1a78a6bfb7276e24390d6663aa6e8f76, type: 3}
+  cruiserPrefab: {fileID: 711967814301932495, guid: 78f8be945aa46e74e84d3ca78fb53bf9, type: 3}
+  corvettePrefab: {fileID: 5890521837286341512, guid: 882f6e0e82b8dc0438b142b88c274238, type: 3}
   submarinePrefab: {fileID: 842535761944071747, guid: dedaf03be1ab44793b1ec445d1c37eef, type: 3}
 --- !u!114 &59926278162562465
 MonoBehaviour:

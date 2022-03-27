@@ -4,6 +4,8 @@ using Backend;
 using Client;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Networking;
+using Random = UnityEngine.Random;
 
 public class GameManager : NetworkBehaviour {
 
@@ -11,12 +13,18 @@ public class GameManager : NetworkBehaviour {
 
     public GameObject battleshipPrefab;
     public GameObject frigatePrefab;
+    public GameObject destroyerPrefab;
+    public GameObject cruiserPrefab;
+    public GameObject corvettePrefab;
     public GameObject submarinePrefab;
 
     private static readonly ShipType[] PlacedTypes = {
+        ShipType.Destroyer,
         ShipType.Battleship,
         ShipType.Frigate,
         ShipType.Frigate,
+        ShipType.Cruiser,
+        ShipType.Corvette,
         ShipType.Submarine,
         ShipType.Submarine,
     };
@@ -53,16 +61,21 @@ public class GameManager : NetworkBehaviour {
     #region Client Frontend
 
     public GameObject GetShipPrefab(ShipType type) {
-        if (type.Equals(ShipType.Battleship)) {
-            return battleshipPrefab;
-        }
-
-        if (type.Equals(ShipType.Frigate)) {
-            return frigatePrefab;
-        }
-
-        if (type.Equals(ShipType.Submarine)) {
-            return submarinePrefab;
+        switch (type) {
+            case ShipType.Battleship:
+                return battleshipPrefab;
+            case ShipType.Frigate:
+                return frigatePrefab;
+            case ShipType.Destroyer:
+                return destroyerPrefab;
+            case ShipType.Cruiser:
+                return cruiserPrefab;
+            case ShipType.Corvette:
+                return corvettePrefab;
+            case ShipType.Submarine:
+                return submarinePrefab;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(type), type, null);
         }
 
         return null;
@@ -129,8 +142,7 @@ public class GameManager : NetworkBehaviour {
             
             Debug.Log("Clients all connected, starting placement phase.");
             
-            BeginPlacePhaseClientRpc();
-            SetCurrentPlaceTypeClientRpc(PlacedTypes[0]);
+            BeginPlacePhaseClientRpc(PlacedTypes[0]);
             _clientPlaceCounts.Add(_clients[0], 1);
             _clientPlaceCounts.Add(_clients[1], 1);
         }
@@ -161,11 +173,37 @@ public class GameManager : NetworkBehaviour {
                     }
                 }
             });
-        
-            // TODO: If player has finished their place phase, end building mode
-            // TODO: If the last player finished, trigger the first turn.
 
-            // _currentTurn = Random.Range(0, _clients.Count);
+            var nextType = _clientPlaceCounts[rpcParams.Receive.SenderClientId];
+            if (nextType >= PlacedTypes.Length) {
+                // End building for player
+                _clientPlaceCounts[rpcParams.Receive.SenderClientId] = int.MaxValue;
+                
+                // End place phase for this player.
+                EndPlacePhaseClientRpc(new ClientRpcParams() {
+                    Send = new ClientRpcSendParams() {
+                        TargetClientIds = new []{rpcParams.Receive.SenderClientId}
+                    }
+                });
+                
+                // If both are MaxValue, begin!
+                if (_clientPlaceCounts[0] == int.MaxValue && _clientPlaceCounts[1] == int.MaxValue) {
+                    var startingPlayer = Random.Range(0, 1);
+                    TurnStartClientRpc(new ClientRpcParams() {
+                        Send = new ClientRpcSendParams() {
+                            TargetClientIds = new []{_clients[startingPlayer]}
+                        }
+                    });
+                    _currentTurn = startingPlayer;
+                }
+            } else {
+                SetCurrentPlaceTypeClientRpc(PlacedTypes[nextType], new ClientRpcParams() {
+                    Send = new ClientRpcSendParams() {
+                        TargetClientIds = new []{rpcParams.Receive.SenderClientId}
+                    }
+                });
+                _clientPlaceCounts[rpcParams.Receive.SenderClientId]++;
+            }
         }
     }
 
@@ -178,26 +216,39 @@ public class GameManager : NetworkBehaviour {
         }
         
         // Attempt the strike
-        var result = _map.BombAt(pos);
+        var result = _map.BombAt(pos, _clients[(_currentTurn + 1) % 2]);
         
-        // Broadcast the hit
-        BombResultClientRpc(result);
+        Debug.Log($"Attempted strike at {pos} and resulted in a {result.HitType}.");
         
-        // End the current turn
-        TurnEndClientRpc(new ClientRpcParams {
+        var toAttacker = new ClientRpcParams {
             Send = new ClientRpcSendParams {
                 TargetClientIds = new []{rpcParams.Receive.SenderClientId}
             }
-        });
+        };
+        
+        // Broadcast the hit
+        BombResultClientRpc(result, toAttacker);
+
+        // Send destroyed ship data if it was destroyed
+        if (result.HitType == HitResult.Type.Destroy) {
+            var ship = _map.GetAt(result.Position);
+            DisplayDestroyedEnemyShipClientRpc(ship.Value, toAttacker);
+        }
+        
+        // End the current turn
+        TurnEndClientRpc(toAttacker);
 
         // Start next turn
         _currentTurn = (_currentTurn + 1) % _clients.Count;
-        
-        TurnStartClientRpc(new ClientRpcParams {
+
+        var toDefender = new ClientRpcParams {
             Send = new ClientRpcSendParams {
-                TargetClientIds = new []{_clients[_currentTurn]}
+                TargetClientIds = new[] {_clients[_currentTurn]}
             }
-        });
+        };
+        
+        TurnStartClientRpc(toDefender);
+        EnemyBombResultClientRpc(result, toDefender);
     }
 
     #endregion
@@ -227,16 +278,25 @@ public class GameManager : NetworkBehaviour {
 
         // Reorient for client.
         ship.Position = Constants.GetShipMiddle(ship);
-
-        // TODO: Put it into the "My Ships" group.
+        
+        var newRot = Vector3.zero;
+        newRot.y = ship.Up ? 0 : 90;
         Instantiate(GetShipPrefab(ship.Type), Constants.WorldGridToWorld(Constants.LogicalToWorldGrid(ship.Position)),
-            Quaternion.identity, null);
+            Quaternion.Euler(newRot), UIManager.Singleton.ownShips);
     }
 
     [ClientRpc]
     private void DisplayDestroyedEnemyShipClientRpc(Ship ship, ClientRpcParams rpcParams = default) {
-        // TODO: Add the render of the ship to the enemy layer to represent a beaten vessel.
+        // Reorient for client.
+        ship.Position = Constants.GetShipMiddle(ship);
+
+        var newRot = Vector3.zero;
+        newRot.y = ship.Up ? 0 : 90;
+        Instantiate(GetShipPrefab(ship.Type), Constants.WorldGridToWorld(Constants.LogicalToWorldGrid(ship.Position)),
+            Quaternion.Euler(newRot), UIManager.Singleton.enemyShips);
     }
+
+    private Dictionary<Vector2Int, GameObject> _hitMarkers = new Dictionary<Vector2Int, GameObject>();
 
     /// <summary>
     /// Broadcast to all clients telling of a hit or miss at a given position.
@@ -244,24 +304,76 @@ public class GameManager : NetworkBehaviour {
     /// <param name="hit">3D position of hit. Ignore y if miss, display y if hit.</param>
     /// <param name="hitResult">The result of the hit.</param>
     [ClientRpc]
-    private void BombResultClientRpc(HitResult hitResult) {
-        // Render effects etc.
+    private void BombResultClientRpc(HitResult hitResult, ClientRpcParams rpcParams = default) {
+        var loc2D = new Vector2Int(hitResult.Position.x, hitResult.Position.z);
+        if (_previousHits.ContainsKey(loc2D)) {
+            if (_previousHits[loc2D] == hitResult.HitType) {
+                return;
+            }
+        }
+
+        if (_hitMarkers.ContainsKey(loc2D)) {
+            Destroy(_hitMarkers[loc2D]);
+            _hitMarkers.Remove(loc2D);
+        }
+        
+        if (hitResult.HitType == HitResult.Type.Miss) {
+           var go = Instantiate(UIManager.Singleton.missSpherePrefab,
+                Constants.Upscale(Constants.LogicalToWorldGrid(new GridCoordinate(hitResult.Position.x, Constants.WaterLevel, hitResult.Position.z))), Quaternion.identity, UIManager.Singleton.enemyShips);
+
+           _hitMarkers.Add(loc2D, go);
+        } else {
+            var go = Instantiate(UIManager.Singleton.hitSpherePrefab,
+                Constants.Upscale(Constants.LogicalToWorldGrid(hitResult.Position)), Quaternion.identity, UIManager.Singleton.enemyShips);
+
+            _hitMarkers.Add(loc2D, go);
+        }
+        
+        // Log previous hit.
+        _previousHits.Add(loc2D, hitResult.HitType);
+    }
+
+    [ClientRpc]
+    private void EnemyBombResultClientRpc(HitResult hitResult, ClientRpcParams rpcParams = default) {
+        // TODO: Put markers for where the enemy has hit.
+        if (hitResult.HitType == HitResult.Type.Miss) {
+            Instantiate(UIManager.Singleton.missSpherePrefab,
+                Constants.Upscale(Constants.LogicalToWorldGrid(new GridCoordinate(hitResult.Position.x, Constants.WaterLevel, hitResult.Position.y))), Quaternion.identity, UIManager.Singleton.ownShips);
+        } else {
+            Instantiate(UIManager.Singleton.hitSpherePrefab,
+                Constants.Upscale(Constants.LogicalToWorldGrid(hitResult.Position)), Quaternion.identity, UIManager.Singleton.ownShips);
+        }
     }
 
     #endregion
 
     #region Game Phases
 
-    [ClientRpc]
-    private void BeginPlacePhaseClientRpc() {
-        // TODO: Enable build controls
-        Debug.Log("We can build!");
-        _isPlacing = true;
-        UIManager.Singleton.placingUI.SetActive(true);
+    private bool _cooldown = false;
+    
+    public bool OnCooldown() {
+        return _cooldown;
+    }
+
+    private IEnumerator<WaitForSeconds> Cooldown() {
+        _cooldown = true;
+        yield return new WaitForSeconds(1);
+        _cooldown = false;
     }
 
     [ClientRpc]
-    private void EndPlacePhaseClientRpc() {
+    private void BeginPlacePhaseClientRpc(ShipType initialShip) {
+        // TODO: Enable build controls
+        StartCoroutine(Cooldown());
+        Debug.Log("We can build!");
+        _isPlacing = true;
+        UIManager.Singleton.placingUI.SetActive(true);
+
+        _placingType = initialShip;
+    }
+
+    [ClientRpc]
+    private void EndPlacePhaseClientRpc(ClientRpcParams rpcParams = default) {
         // TODO: Disable build controls
         _isPlacing = false;
         UIManager.Singleton.placingUI.SetActive(false);
@@ -269,13 +381,19 @@ public class GameManager : NetworkBehaviour {
 
     [ClientRpc]
     private void TurnStartClientRpc(ClientRpcParams rpcParams = default) {
+        StartCoroutine(Cooldown());
         // TODO: Enable client controls.
         _isTurn = true;
         UIManager.Singleton.attackUI.SetActive(true);
+        UIManager.Singleton.ownShips.gameObject.SetActive(false);
+        UIManager.Singleton.enemyShips.gameObject.SetActive(true);
+        
+        Debug.Log("My turn has begun!");
     }
 
     [ClientRpc]
     private void SetCurrentPlaceTypeClientRpc(ShipType type, ClientRpcParams rpcParams = default) {
+        Debug.Log("Received next ship type.");
         _placingType = type;
     }
 
@@ -284,6 +402,10 @@ public class GameManager : NetworkBehaviour {
         // TODO: Disable client controls
         _isTurn = false;
         UIManager.Singleton.attackUI.SetActive(false);
+        UIManager.Singleton.ownShips.gameObject.SetActive(true);
+        UIManager.Singleton.enemyShips.gameObject.SetActive(false);
+        
+        Debug.Log("My turn has ended!");
     }
 
     #endregion

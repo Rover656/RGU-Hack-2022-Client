@@ -8,6 +8,9 @@ public class UIManager : MonoBehaviour {
     public Transform ownShips;
     public Transform enemyShips;
 
+    public GameObject hitSpherePrefab;
+    public GameObject missSpherePrefab;
+
     public static UIManager Singleton;
 
     private void Start() {
