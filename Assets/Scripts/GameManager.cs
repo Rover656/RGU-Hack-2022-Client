@@ -335,12 +335,12 @@ public class GameManager : NetworkBehaviour {
 
     [ClientRpc]
     private void EnemyBombResultClientRpc(HitResult hitResult, ClientRpcParams rpcParams = default) {
-        // TODO: Put markers for where the enemy has hit.
+        // Show where we've been hit. Red means bad
         if (hitResult.HitType == HitResult.Type.Miss) {
-            Instantiate(UIManager.Singleton.missSpherePrefab,
+            Instantiate(UIManager.Singleton.hitSpherePrefab,
                 Constants.Upscale(Constants.LogicalToWorldGrid(new GridCoordinate(hitResult.Position.x, Constants.WaterLevel, hitResult.Position.y))), Quaternion.identity, UIManager.Singleton.ownShips);
         } else {
-            Instantiate(UIManager.Singleton.hitSpherePrefab,
+            Instantiate(UIManager.Singleton.missSpherePrefab,
                 Constants.Upscale(Constants.LogicalToWorldGrid(hitResult.Position)), Quaternion.identity, UIManager.Singleton.ownShips);
         }
     }
