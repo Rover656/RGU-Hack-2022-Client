@@ -5,6 +5,7 @@ namespace Backend {
         // TODO: WE DEPEND UPON ODD NUMBERS!
         public static readonly ShipType Battleship = new ShipType(0, 5, true);
         public static readonly ShipType Frigate = new ShipType(1, 3, true);
+        public static readonly ShipType Submarine = new ShipType(10, 3, false);
 
         private int _id;
         public int Length;

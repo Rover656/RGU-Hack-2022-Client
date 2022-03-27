@@ -9,25 +9,31 @@ public class GameManager : NetworkBehaviour {
 
     public static GameManager Singleton;
 
-    public GameObject waitingForConnectUI;
-    public GameObject placementUI;
-    public GameObject attackUI;
-
-
     public GameObject battleshipPrefab;
+    public GameObject frigatePrefab;
+    public GameObject submarinePrefab;
+
+    private static readonly ShipType[] PlacedTypes = {
+        ShipType.Battleship,
+        ShipType.Frigate,
+        ShipType.Frigate,
+        ShipType.Submarine,
+        ShipType.Submarine,
+    };
     
     #region Behaviour Actions
 
     // Setup
     private void Start() {
         Singleton = this;
-        
-        if (NetworkManager.IsHost) {
-            waitingForConnectUI.SetActive(true);
-        }
 
-        placementUI.SetActive(false);
-        attackUI.SetActive(false);
+        if (NetworkManager.IsHost) {
+            Debug.Log("Host waiting screen display.");
+            UIManager.Singleton.waitingUI.SetActive(true);
+        } else UIManager.Singleton.waitingUI.SetActive(false);
+
+        UIManager.Singleton.placingUI.SetActive(false);
+        UIManager.Singleton.attackUI.SetActive(false);
         
         Debug.Log("This bit runs.");
         if (NetworkManager.IsServer) {
@@ -36,6 +42,7 @@ public class GameManager : NetworkBehaviour {
             NetworkManager.Singleton.ConnectionApprovalCallback += OnConnectionApprovalCallback;
 
             if (NetworkManager.IsHost) {
+                Debug.Log("Adding local client to list.");
                 _clients.Add(NetworkManager.Singleton.LocalClientId);
             }
         }
@@ -45,13 +52,32 @@ public class GameManager : NetworkBehaviour {
     
     #region Client Frontend
 
+    public GameObject GetShipPrefab(ShipType type) {
+        if (type.Equals(ShipType.Battleship)) {
+            return battleshipPrefab;
+        }
+
+        if (type.Equals(ShipType.Frigate)) {
+            return frigatePrefab;
+        }
+
+        if (type.Equals(ShipType.Submarine)) {
+            return submarinePrefab;
+        }
+
+        return null;
+    }
+
     public bool PlacementsEnabled() {
-        return true; // TODO: bring this shit back
         return _isPlacing;
     }
     
     public bool IsMyTurn() {
         return _isTurn;
+    }
+
+    public ShipType? GetPlacingShipType() {
+        return _placingType;
     }
 
     public HitResult.Type GetCellLastState(Vector2Int pos) {
@@ -87,6 +113,7 @@ public class GameManager : NetworkBehaviour {
 
     private OceanMap _map = new OceanMap(); // TODO: Move back to ServerSetupGame()
     private List<ulong> _clients = new List<ulong>();
+    private Dictionary<ulong, int> _clientPlaceCounts = new Dictionary<ulong, int>();
 
     // Turn tracker for players.
     private int _currentTurn = -1;
@@ -97,10 +124,15 @@ public class GameManager : NetworkBehaviour {
 
         if (_clients.Count >= 2) {
             if (IsHost) {
-                waitingForConnectUI.gameObject.SetActive(false);
+                UIManager.Singleton.waitingUI.gameObject.SetActive(false);
             }
             
+            Debug.Log("Clients all connected, starting placement phase.");
+            
             BeginPlacePhaseClientRpc();
+            SetCurrentPlaceTypeClientRpc(PlacedTypes[0]);
+            _clientPlaceCounts.Add(_clients[0], 1);
+            _clientPlaceCounts.Add(_clients[1], 1);
         }
     }
     
@@ -114,7 +146,7 @@ public class GameManager : NetworkBehaviour {
         callback(false, null, true, null, null);
     }
 
-    [ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     private void PlaceShipServerRpc(Ship ship, ServerRpcParams rpcParams = default) {
         // Set the owner
         ship.Owner = rpcParams.Receive.SenderClientId;
@@ -122,7 +154,7 @@ public class GameManager : NetworkBehaviour {
         // Place ship
         if (_map.AddShip(ship)) {
             // Return the placed ship
-            ShipPlacedClientRpc(ship, new ClientRpcParams() {
+            OwnShipPlacedClientRpc(ship, new ClientRpcParams() {
                 Send = new ClientRpcSendParams() {
                     TargetClientIds = new [] {
                         rpcParams.Receive.SenderClientId
@@ -137,7 +169,7 @@ public class GameManager : NetworkBehaviour {
         }
     }
 
-    [ServerRpc]
+    [ServerRpc(RequireOwnership = false)]
     private void TryHitServerRpc(GridCoordinate pos, ServerRpcParams rpcParams = default) {
         // Get player index
         var idx = _clients.FindIndex(x => x == rpcParams.Receive.SenderClientId);
@@ -177,6 +209,8 @@ public class GameManager : NetworkBehaviour {
     private bool _isPlacing = false;
     private bool _isTurn = false;
 
+    private ShipType? _placingType = null;
+
     private Dictionary<Vector2Int, HitResult.Type> _previousHits = new Dictionary<Vector2Int, HitResult.Type>();
 
     #region Map Events
@@ -188,16 +222,20 @@ public class GameManager : NetworkBehaviour {
     /// <param name="ship">The ship that was placed.</param>
     /// <param name="receiveParams"></param>
     [ClientRpc]
-    private void ShipPlacedClientRpc(Ship ship, ClientRpcParams receiveParams = default) {
-        // TODO: Render ship for meeeee
-        
+    private void OwnShipPlacedClientRpc(Ship ship, ClientRpcParams receiveParams = default) {
         Debug.Log("A SHIP HATH BEEN PLACE!");
 
         // Reorient for client.
         ship.Position = Constants.GetShipMiddle(ship);
 
-        Instantiate(battleshipPrefab, Constants.WorldGridToWorld(Constants.LogicalToWorldGrid(ship.Position)),
+        // TODO: Put it into the "My Ships" group.
+        Instantiate(GetShipPrefab(ship.Type), Constants.WorldGridToWorld(Constants.LogicalToWorldGrid(ship.Position)),
             Quaternion.identity, null);
+    }
+
+    [ClientRpc]
+    private void DisplayDestroyedEnemyShipClientRpc(Ship ship, ClientRpcParams rpcParams = default) {
+        // TODO: Add the render of the ship to the enemy layer to represent a beaten vessel.
     }
 
     /// <summary>
@@ -217,29 +255,35 @@ public class GameManager : NetworkBehaviour {
     [ClientRpc]
     private void BeginPlacePhaseClientRpc() {
         // TODO: Enable build controls
+        Debug.Log("We can build!");
         _isPlacing = true;
-        placementUI.SetActive(true);
+        UIManager.Singleton.placingUI.SetActive(true);
     }
 
     [ClientRpc]
     private void EndPlacePhaseClientRpc() {
         // TODO: Disable build controls
         _isPlacing = false;
-        placementUI.SetActive(false);
+        UIManager.Singleton.placingUI.SetActive(false);
     }
 
     [ClientRpc]
     private void TurnStartClientRpc(ClientRpcParams rpcParams = default) {
         // TODO: Enable client controls.
         _isTurn = true;
-        attackUI.SetActive(true);
+        UIManager.Singleton.attackUI.SetActive(true);
+    }
+
+    [ClientRpc]
+    private void SetCurrentPlaceTypeClientRpc(ShipType type, ClientRpcParams rpcParams = default) {
+        _placingType = type;
     }
 
     [ClientRpc]
     private void TurnEndClientRpc(ClientRpcParams rpcParams = default) {
         // TODO: Disable client controls
         _isTurn = false;
-        attackUI.SetActive(false);
+        UIManager.Singleton.attackUI.SetActive(false);
     }
 
     #endregion

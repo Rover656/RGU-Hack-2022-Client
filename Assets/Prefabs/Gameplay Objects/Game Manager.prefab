@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 7348815623540787755}
   - component: {fileID: 4754804620761263327}
   - component: {fileID: 59926278162562465}
-  - component: {fileID: 2496150620164281555}
   m_Layer: 0
   m_Name: Game Manager
   m_TagString: Untagged
@@ -48,6 +47,9 @@ MonoBehaviour:
   waitingForConnectUI: {fileID: 0}
   placementUI: {fileID: 0}
   attackUI: {fileID: 0}
+  battleshipPrefab: {fileID: 8784320574195257009, guid: db4a3a7b935c943988bb1228c8fda927, type: 3}
+  frigatePrefab: {fileID: 5216069836026236033, guid: 1cec98a029f2e4b18b9ad1a41757a441, type: 3}
+  submarinePrefab: {fileID: 842535761944071747, guid: dedaf03be1ab44793b1ec445d1c37eef, type: 3}
 --- !u!114 &59926278162562465
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -64,16 +66,3 @@ MonoBehaviour:
   AlwaysReplicateAsRoot: 0
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
---- !u!114 &2496150620164281555
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7348815623540787752}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3f0b166e020524bc28fdbcc5d7ba83dc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gameManager: {fileID: 4754804620761263327}

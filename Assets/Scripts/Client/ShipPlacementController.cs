@@ -8,7 +8,8 @@ namespace Client {
 
         private int Elevation {
             get {
-                if (_selected.Boat) {
+                if (!GameManager.Singleton.GetPlacingShipType().HasValue) return Constants.WaterLevel;
+                if (GameManager.Singleton.GetPlacingShipType().Value.Boat) {
                     return Constants.WaterLevel;
                 }
 
@@ -17,24 +18,38 @@ namespace Client {
         }
 
         // TODO: Ship type selection stuff.
-        private ShipType _selected = ShipType.Battleship;
-        private int _elevation;
+        private int _elevation = Constants.WaterLevel;
         private bool _upwards = true;
 
         private void Update() {
             // Enable/Disable systems
+            if (GameManager.Singleton == null) return;
+            if (GameManager.Singleton.GetPlacingShipType() == null) return;
+            
             if (GameManager.Singleton.PlacementsEnabled()) {
                 if (previewVessel == null) {
                     CreatePreview();
                 }
-                
+
                 // Move tool on grid.
                 MoveToMouseOnGrid();
+                
+                // Update preview
+                UpdatePreview();
                 
                 // Only show the vessel if the mouse is in the grid.
                 previewVessel.SetActive(IsInGrid);
                 
-                // TODO: Elevation controls.
+                // Elevation controls.
+                if (Input.GetKeyDown(KeyCode.S)) {
+                    _elevation--;
+                    if (_elevation < 1) _elevation = 1;
+                }
+
+                if (Input.GetKeyDown(KeyCode.W)) {
+                    _elevation++;
+                    if (_elevation > Constants.WaterLevel) _elevation = Constants.WaterLevel;
+                }
             
                 // TODO: Navigate through ship types, recreating the preview.
             
@@ -52,28 +67,27 @@ namespace Client {
         }
 
         private void CreatePreview() {
-            previewVessel = Instantiate(GetShipPrefab(), Vector3.zero, Quaternion.identity, transform);
+            previewVessel = Instantiate(GameManager.Singleton.GetShipPrefab(GameManager.Singleton.GetPlacingShipType().Value), Vector3.zero, Quaternion.identity, transform);
         }
 
         private void DestroyPreview() {
             Destroy(previewVessel);
         }
 
+        private void UpdatePreview() {
+            var newPos = Vector3.zero;
+            newPos.y = (Elevation - Constants.WaterLevel) * Constants.SquareSize;
+            previewVessel.transform.localPosition = newPos;
+        }
+
         private Ship GetShipDescriptor() {
             if (!MouseLogicalPos.HasValue)
                 throw new Exception("Mouse was not present, ship cannot be placed!");
 
-            var coord = Constants.GetShipRearPos(MouseGridPos.Value, _upwards, _selected);
+            var coord = Constants.GetShipRearPos(MouseGridPos.Value, _upwards, GameManager.Singleton.GetPlacingShipType().Value);
+            coord.y = Elevation;
             Debug.Log($"Coord picked: ${coord}");
-            return new Ship(coord, _upwards, _selected);
-        }
-
-        private GameObject GetShipPrefab() {
-            if (_selected.Equals(ShipType.Battleship)) {
-                return GameManager.Singleton.battleshipPrefab;
-            }
-
-            return null;
+            return new Ship(coord, _upwards, GameManager.Singleton.GetPlacingShipType().Value);
         }
     }
 }

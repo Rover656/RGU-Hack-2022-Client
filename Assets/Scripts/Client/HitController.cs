@@ -15,6 +15,8 @@ public class HitController : BaseMouseTool {
     }
     
     private void Update() {
+        if (GameManager.Singleton == null) return;
+        
         // Move on grid.
         MoveToMouseOnGrid();
         

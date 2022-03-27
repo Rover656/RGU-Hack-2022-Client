@@ -231,7 +231,7 @@ Material:
     - _WaveSpeed: 20
     - _ZWrite: 1
     m_Colors:
-    - _AlbedoColor: {r: 1, g: 0.7921569, b: 0.5529412, a: 0.8}
+    - _AlbedoColor: {r: 1, g: 0.7921569, b: 0.5529412, a: 0.77254903}
     - _BlendColor: {r: 0.29411763, g: 0.29411763, b: 0.29411763, a: 1}
     - _Color: {r: 1, g: 0.7924575, b: 0.55200005, a: 1}
     - _DiffuseColor: {r: 0.32352936, g: 0.32352936, b: 0.32352936, a: 1}
